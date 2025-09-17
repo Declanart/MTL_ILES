@@ -247,7 +247,6 @@ async function resetGroup() {
 
 // ---- Tabs
 function LogTab({ addEntry, entries, removeEntry }) {
-  await ensureAuth()
   const [km, setKm] = useState(3);
   const [dateISO, setDateISO] = useState(new Date().toISOString().slice(0,10));
   const [note, setNote] = useState("");
