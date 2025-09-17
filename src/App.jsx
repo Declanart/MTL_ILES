@@ -84,12 +84,14 @@ export default function App() {
   }, [group]);
 
   const nextMilestone = useMemo(() => {
-    if (!group?.milestones?.length) return null;
-    const sorted = [...group.milestones].sort((a, b) => a.distance - b.distance);
-    let next = sorted[sorted.length - 1];
-    for (const m of sorted) { if (groupTotal < m.distance) { next = m; break; } }
-    return next;
-  }, [group?.milestones, groupTotal]);
+  const list = group?.milestones || [];
+  if (!list.length) return null;
+  for (const m of list) {
+    if (groupTotal < m.distance) return m;
+  }
+  return list[list.length - 1];
+}, [group?.milestones, groupTotal]);
+
 
   // actions
   function ensureMember(name) {
