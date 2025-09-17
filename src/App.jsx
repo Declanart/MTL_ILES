@@ -47,11 +47,13 @@ function TabButton({ active, icon: Icon, label, onClick }) {
 async function ensureGroupDoc(groupId) {
   const gref = doc(db, "groups", groupId);
   const snap = await getDoc(gref);
-  if (!snap.exists()) {
+  if (!snap.exists()) { 
+    await ensureAuth(); // ✅
     await setDoc(gref, { milestones: DEFAULT_MILESTONES, createdAt: Date.now() }, { merge: true });
   }
 }
 async function setMemberEntries(groupId, username, entries) {
+  await ensureAuth(); // ✅
   const mref = doc(db, "groups", groupId, "members", username);
   await setDoc(mref, { entries, updatedAt: Date.now() }, { merge: true });
 }
@@ -61,10 +63,12 @@ async function getMemberEntries(groupId, username) {
   return s.exists() ? (s.data().entries || []) : [];
 }
 async function updateGroupMilestones(groupId, list) {
+  await ensureAuth(); // ✅
   const gref = doc(db, "groups", groupId);
   await setDoc(gref, { milestones: list, updatedAt: Date.now() }, { merge: true });
 }
 async function deleteAllMembers(groupId) {
+  await ensureAuth(); // ✅
   const q = await getDocs(collection(db, "groups", groupId, "members"));
   const ops = [];
   q.forEach((d) => ops.push(deleteDoc(d.ref)));
@@ -176,13 +180,16 @@ async function resetGroup() {
 }
 
   async function removeEntry(id, name) {
+    await ensureAuth()
     const cur = await getMemberEntries(currentGroup, name);
     await setMemberEntries(currentGroup, name, cur.filter(e => e.id !== id));
   }
   async function updateMilestonesAction(list) {
+    await ensureAuth()
     await updateGroupMilestones(currentGroup, list); // ordre respecté + distances cumulées déjà calculées par Admin
   }
   async function resetGroup() {
+    await ensureAuth()
     if (!confirm("Réinitialiser le groupe? (toutes les entrées seront effacées)")) return;
     await deleteAllMembers(currentGroup);
   }
@@ -240,6 +247,7 @@ async function resetGroup() {
 
 // ---- Tabs
 function LogTab({ addEntry, entries, removeEntry }) {
+  await ensureAuth()
   const [km, setKm] = useState(3);
   const [dateISO, setDateISO] = useState(new Date().toISOString().slice(0,10));
   const [note, setNote] = useState("");
