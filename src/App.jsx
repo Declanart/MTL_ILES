@@ -162,10 +162,10 @@ export default function App() {
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-              <div className="w-10 h-10 rounded-2xl bg-black text-white grid place-items-center font-bold">KM</div>
+              <div className="w-10 h-10 rounded-2xl bg-black text-white grid place-items-center font-bold">LM</div>
             </motion.div>
             <div>
-              <h1 className="text-xl font-semibold leading-tight">Kilomètres Ensemble</h1>
+              <h1 className="text-xl font-semibold leading-tight">Les motivés</h1>
               <p className="text-sm text-neutral-500">Synchro temps réel (Firestore)</p>
             </div>
           </div>
