@@ -10,6 +10,7 @@ permissions:
 concurrency:
   group: "pages"
   cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,13 +18,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 20   # ❌ pas de cache ici
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
