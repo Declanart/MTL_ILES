@@ -1,38 +1,25 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Trophy, Plus, Users, Settings, MapPin, Footprints, ChevronRight, Download } from "lucide-react";
+import { db, signInAnon } from "./firebase";
+import {
+  doc, setDoc, getDoc, onSnapshot,
+  collection, getDocs, deleteDoc
+} from "firebase/firestore";
 
 const DEFAULT_MILESTONES = [
   { id: "mtl", name: "Montréal (départ)", distance: 0 },
-  { id: "qd", name: "Québec", distance: 250 },
-  { id: "rimuski", name: "Rimouski", distance: 540 },
-  { id: "matane", name: "Matane", distance: 630 },
-  { id: "ste-anne", name: "Ste-Anne-des-Monts", distance: 720 },
-  { id: "gaspe", name: "Gaspé", distance: 930 },
-  { id: "iles", name: "Îles-de-la-Madeleine (arrivée)", distance: 1200 },
+  { id: "qc", name: "Québec", distance: 317 },
+  { id: "rdl", name: "Rivière-du-loup", distance: 525 },
+  { id: "fre", name: "Frédéricton", distance: 913 },
+  { id: "mon", name: "Moncton", distance: 1089 },
+  { id: "cht", name: "Charlottetown", distance: 1254 },
+  { id: "srs", name: "Charlottetown - Souris", distance: 1334 },
+  { id: "iles", name: "Souris - Îles-de-la-Madeleine (arrivée)", distance: 1487 },
 ];
 
-const DEFAULT_GROUP = {
-  name: "Famille & amis",
-  milestones: DEFAULT_MILESTONES,
-  members: {},
-};
-
-const LS_KEY = "km-ensemble:v1";
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return { groups: { [DEFAULT_GROUP.name]: DEFAULT_GROUP } };
-    return JSON.parse(raw);
-  } catch {
-    return { groups: { [DEFAULT_GROUP.name]: DEFAULT_GROUP } };
-  }
-}
-function saveState(state) { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-
-const uid = () => Math.random().toString(36).slice(2, 9);
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const LS_USER = "km-ensemble:username";
+const DEFAULT_GROUP_ID = "MTL_ILES"; // tu peux créer d'autres groupes avec d'autres IDs
 
 // UI atoms
 function Card({ children, className = "" }) {
@@ -56,89 +43,119 @@ function TabButton({ active, icon: Icon, label, onClick }) {
   );
 }
 
+// ---- Firestore helpers (structure: groups/{groupId} + subcollection members/{username})
+async function ensureGroupDoc(groupId) {
+  const gref = doc(db, "groups", groupId);
+  const snap = await getDoc(gref);
+  if (!snap.exists()) {
+    await setDoc(gref, { milestones: DEFAULT_MILESTONES, createdAt: Date.now() }, { merge: true });
+  }
+}
+async function setMemberEntries(groupId, username, entries) {
+  const mref = doc(db, "groups", groupId, "members", username);
+  await setDoc(mref, { entries, updatedAt: Date.now() }, { merge: true });
+}
+async function getMemberEntries(groupId, username) {
+  const mref = doc(db, "groups", groupId, "members", username);
+  const s = await getDoc(mref);
+  return s.exists() ? (s.data().entries || []) : [];
+}
+async function updateGroupMilestones(groupId, list) {
+  const gref = doc(db, "groups", groupId);
+  await setDoc(gref, { milestones: list, updatedAt: Date.now() }, { merge: true });
+}
+async function deleteAllMembers(groupId) {
+  const q = await getDocs(collection(db, "groups", groupId, "members"));
+  const ops = [];
+  q.forEach((d) => ops.push(deleteDoc(d.ref)));
+  await Promise.all(ops);
+}
+
 export default function App() {
-  const [state, setState] = useState(loadState());
   const [activeTab, setActiveTab] = useState("log");
-  const [currentGroup, setCurrentGroup] = useState(DEFAULT_GROUP.name);
-  const [username, setUsername] = useState(localStorage.getItem("km-ensemble:username") || "");
-  useEffect(() => saveState(state), [state]);
-  useEffect(() => localStorage.setItem("km-ensemble:username", username), [username]);
+  const [currentGroup, setCurrentGroup] = useState(DEFAULT_GROUP_ID);
+  const [username, setUsername] = useState(localStorage.getItem(LS_USER) || "");
+  const [milestones, setMilestones] = useState(DEFAULT_MILESTONES);
+  const [members, setMembers] = useState({}); // { [name]: { entries: [...] } }
 
-  const groups = Object.keys(state.groups);
-  const group = state.groups[currentGroup];
+  // Auth anonyme + abonnements Firestore
+  const unsubGroupRef = useRef(null);
+  const unsubMembersRef = useRef(null);
 
-  // entries + totals
+  useEffect(() => { signInAnon(); }, []);
+
+  useEffect(() => {
+    // 1) s'assurer que le doc du groupe existe
+    ensureGroupDoc(currentGroup);
+
+    // 2) écouter le doc du groupe (milestones)
+    if (unsubGroupRef.current) unsubGroupRef.current();
+    unsubGroupRef.current = onSnapshot(doc(db, "groups", currentGroup), (snap) => {
+      const data = snap.data() || {};
+      setMilestones(Array.isArray(data.milestones) && data.milestones.length ? data.milestones : DEFAULT_MILESTONES);
+    });
+
+    // 3) écouter tous les membres + entrées
+    if (unsubMembersRef.current) unsubMembersRef.current();
+    unsubMembersRef.current = onSnapshot(collection(db, "groups", currentGroup, "members"), (qs) => {
+      const obj = {};
+      qs.forEach((d) => { obj[d.id] = { entries: d.data()?.entries || [] }; });
+      setMembers(obj);
+    });
+
+    return () => {
+      if (unsubGroupRef.current) unsubGroupRef.current();
+      if (unsubMembersRef.current) unsubMembersRef.current();
+    };
+  }, [currentGroup]);
+
+  useEffect(() => { localStorage.setItem(LS_USER, username); }, [username]);
+
+  // Dérivés
   const { entries, perUserTotals, groupTotal } = useMemo(() => {
     const entries = [];
     const perUserTotals = {};
-    if (group?.members) {
-      for (const [name, data] of Object.entries(group.members)) {
-        const total = (data.entries || []).reduce((s, e) => s + Number(e.km || 0), 0);
-        perUserTotals[name] = total;
-        for (const e of data.entries || []) entries.push({ ...e, name });
-      }
+    for (const [name, data] of Object.entries(members || {})) {
+      const total = (data.entries || []).reduce((s, e) => s + Number(e.km || 0), 0);
+      perUserTotals[name] = total;
+      for (const e of data.entries || []) entries.push({ ...e, name });
     }
     entries.sort((a, b) => (a.dateISO < b.dateISO ? 1 : -1));
     const groupTotal = Object.values(perUserTotals).reduce((s, v) => s + v, 0);
     return { entries, perUserTotals, groupTotal };
-  }, [group]);
+  }, [members]);
 
   const nextMilestone = useMemo(() => {
-  const list = group?.milestones || [];
-  if (!list.length) return null;
-  for (const m of list) {
-    if (groupTotal < m.distance) return m;
-  }
-  return list[list.length - 1];
-}, [group?.milestones, groupTotal]);
+    const list = milestones || [];
+    if (!list.length) return null;
+    for (const m of list) {
+      if (groupTotal < Number(m.distance || 0)) return m;
+    }
+    return list[list.length - 1];
+  }, [milestones, groupTotal]);
 
-
-
-  // actions
-  function ensureMember(name) {
-    if (!name) return;
-    setState(prev => {
-      const g = prev.groups[currentGroup];
-      if (!g.members[name]) g.members[name] = { entries: [] };
-      return { ...prev, groups: { ...prev.groups, [currentGroup]: { ...g } } };
-    });
-  }
-  function addEntry({ km, dateISO, note }) {
+  // Actions
+  async function addEntry({ km, dateISO, note }) {
     if (!username) return alert("Entre ton prénom d'abord.");
     if (!km || km <= 0) return alert("Entre un nombre de kilomètres valide.");
-    ensureMember(username);
-    setState(prev => {
-      const g = { ...prev.groups[currentGroup] };
-      const member = g.members[username] || { entries: [] };
-      const entry = { id: uid(), km: Number(km), dateISO: dateISO || todayISO(), note: note?.trim() };
-      member.entries = [entry, ...(member.entries || [])];
-      g.members[username] = member;
-      return { ...prev, groups: { ...prev.groups, [currentGroup]: g } };
-    });
+    const cur = await getMemberEntries(currentGroup, username);
+    const entry = { id: Math.random().toString(36).slice(2, 9), km: Number(km), dateISO: dateISO || new Date().toISOString().slice(0,10), note: note?.trim() };
+    await setMemberEntries(currentGroup, username, [entry, ...cur]); // écrit côté serveur
   }
-  function removeEntry(id, name) {
-    setState(prev => {
-      const g = { ...prev.groups[currentGroup] };
-      const m = g.members[name]; if (!m) return prev;
-      m.entries = (m.entries || []).filter(e => e.id !== id);
-      g.members[name] = m;
-      return { ...prev, groups: { ...prev.groups, [currentGroup]: g } };
-    });
+  async function removeEntry(id, name) {
+    const cur = await getMemberEntries(currentGroup, name);
+    await setMemberEntries(currentGroup, name, cur.filter(e => e.id !== id));
   }
-  function updateMilestones(list) {
-    setState(prev => {
-      const g = { ...prev.groups[currentGroup], milestones: list };
-      return { ...prev, groups: { ...prev.groups, [currentGroup]: g } };
-    });
+  async function updateMilestonesAction(list) {
+    await updateGroupMilestones(currentGroup, list); // ordre respecté + distances cumulées déjà calculées par Admin
   }
-  function resetGroup() {
+  async function resetGroup() {
     if (!confirm("Réinitialiser le groupe? (toutes les entrées seront effacées)")) return;
-    setState(prev => {
-      const g = { ...prev.groups[currentGroup], members: {} };
-      return { ...prev, groups: { ...prev.groups, [currentGroup]: g } };
-    });
+    await deleteAllMembers(currentGroup);
   }
 
+  // UI
+  const groups = [DEFAULT_GROUP_ID]; // tu peux étendre si besoin
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-neutral-50 to-neutral-100 text-neutral-900">
       <div className="max-w-xl mx-auto p-4 pb-24">
@@ -149,10 +166,10 @@ export default function App() {
             </motion.div>
             <div>
               <h1 className="text-xl font-semibold leading-tight">Kilomètres Ensemble</h1>
-              <p className="text-sm text-neutral-500">Suivi simple & joli pour ~20 personnes</p>
+              <p className="text-sm text-neutral-500">Synchro temps réel (Firestore)</p>
             </div>
           </div>
-          <div className="text-xs text-neutral-500">Prototype</div>
+          <div className="text-xs text-neutral-500">{currentGroup}</div>
         </div>
 
         <Card className="mb-4">
@@ -161,7 +178,7 @@ export default function App() {
               <label className="text-xs text-neutral-500">Groupe</label>
               <select className="flex-1 px-3 py-2 rounded-xl border border-neutral-200 bg-white"
                 value={currentGroup} onChange={e => setCurrentGroup(e.target.value)}>
-                {Object.keys(state.groups).map(g => <option key={g} value={g}>{g}</option>)}
+                {groups.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
             <div className="w-full sm:w-1/2">
@@ -181,17 +198,17 @@ export default function App() {
 
         {activeTab === "log" && <LogTab addEntry={addEntry} entries={entries} removeEntry={removeEntry} />}
         {activeTab === "board" && <BoardTab perUserTotals={perUserTotals} groupTotal={groupTotal} />}
-        {activeTab === "progress" && <ProgressTab milestones={group.milestones} groupTotal={groupTotal} nextMilestone={nextMilestone} />}
-        {activeTab === "admin" && <AdminTab milestones={group.milestones} updateMilestones={updateMilestones} resetGroup={resetGroup} />}
+        {activeTab === "progress" && <ProgressTab milestones={milestones} groupTotal={groupTotal} nextMilestone={nextMilestone} />}
+        {activeTab === "admin" && <AdminTab milestones={milestones} updateMilestones={updateMilestonesAction} resetGroup={resetGroup} />}
       </div>
     </div>
   );
 }
 
-// --- Tabs ---
+// ---- Tabs
 function LogTab({ addEntry, entries, removeEntry }) {
   const [km, setKm] = useState(3);
-  const [dateISO, setDateISO] = useState(todayISO());
+  const [dateISO, setDateISO] = useState(new Date().toISOString().slice(0,10));
   const [note, setNote] = useState("");
 
   return (
@@ -270,8 +287,8 @@ function BoardTab({ perUserTotals, groupTotal }) {
 }
 
 function ProgressTab({ milestones, groupTotal, nextMilestone }) {
-  const list = milestones || [];                   // on garde l'ordre tel quel (ordre du parcours)
-  const max = list.at(-1)?.distance || 1;          // km cumulés totaux
+  const list = milestones || [];
+  const max = list.at(-1)?.distance || 1;
   const startName = list[0]?.name ?? "Départ";
   const endName = list.at(-1)?.name ?? "Arrivée";
   const pct = Math.max(0, Math.min(100, (groupTotal / max) * 100));
@@ -279,19 +296,35 @@ function ProgressTab({ milestones, groupTotal, nextMilestone }) {
   return (
     <div className="space-y-4">
       <Card>
-        <div className="flex items-center gap-2 mb-2">
-          <MapPin className="w-4 h-4" />
-          <span className="font-medium">Parcours</span>
-        </div>
-
+        <div className="flex items-center gap-2 mb-2"><MapPin className="w-4 h-4" /><span className="font-medium">Parcours</span></div>
         <div className="flex items-center justify-between text-sm">
           <span>{startName}</span>
           <span className="text-neutral-500">{groupTotal.toFixed(1)} / {max} km</span>
           <span>{endName}</span>
         </div>
 
-        <div className="mt-2 h-3 bg-neutral-200 rounded-full overflow-hidden">
-          <div className="h-full bg-black" style={{ width: `${pct}%` }} />
+        {/* Barre + jalons */}
+        <div className="relative mt-2">
+          <div className="h-3 bg-neutral-200 rounded-full overflow-hidden">
+            <div className="h-full bg-black" style={{ width: `${pct}%` }} />
+          </div>
+          {list.map((m, idx) => {
+            const left = (Number(m.distance) / max) * 100;
+            const reached = groupTotal >= Number(m.distance);
+            return (
+              <div key={m.id} className="absolute top-1/2 -translate-y-1/2"
+                   style={{ left: `${left}%`, transform: "translate(-50%, -50%)" }}
+                   title={`${idx + 1}. ${m.name} • ${m.distance} km`}>
+                <div className={`w-2 h-2 rounded-full border border-white ${reached ? "bg-black" : "bg-neutral-300"}`} />
+              </div>
+            );
+          })}
+        </div>
+        <div className="relative mt-1 h-4 text-[10px] text-neutral-500">
+          {list.map((m) => {
+            const left = (Number(m.distance) / max) * 100;
+            return <div key={`lab-${m.id}`} className="absolute -translate-x-1/2" style={{ left: `${left}%` }}>{m.distance} km</div>;
+          })}
         </div>
 
         {nextMilestone && (
@@ -308,14 +341,12 @@ function ProgressTab({ milestones, groupTotal, nextMilestone }) {
         <ul className="divide-y">
           {list.map((m, idx) => {
             const prev = list[idx - 1];
-            const segment = idx === 0 ? 0 : Math.max(0, Number(m.distance) - Number(prev?.distance || 0)); // km entre étapes
+            const segment = idx === 0 ? 0 : Math.max(0, Number(m.distance) - Number(prev?.distance || 0));
             return (
               <li key={m.id} className="py-3 flex items-center justify-between">
                 <div>
                   <div className="font-medium">{idx + 1}. {m.name}</div>
-                  <div className="text-xs text-neutral-500">
-                    {segment} km segment · {m.distance} km cumulés
-                  </div>
+                  <div className="text-xs text-neutral-500">{segment} km segment · {m.distance} km cumulés</div>
                 </div>
                 <div className={`text-xs px-2 py-1 rounded-full ${
                   groupTotal >= (m.distance ?? 0) ? "bg-green-100 text-green-700" : "bg-neutral-100 text-neutral-600"
@@ -330,24 +361,46 @@ function ProgressTab({ milestones, groupTotal, nextMilestone }) {
     </div>
   );
 }
-function AdminTab({ milestones, updateMilestones, resetGroup }) {
-  const [local, setLocal] = useState(milestones);
-  useEffect(() => setLocal(milestones), [milestones]);
 
-  function addMilestone() {
-    setLocal(prev => [...prev, { id: uid(), name: "Nouvelle étape", distance: (prev.at(-1)?.distance || 0) + 50 }]);
-  }
-  function onSave() {
-    const clean = [...local]
-      .map(m => ({ ...m, name: (m.name || "").trim() }))
-      .filter(m => m.name && !Number.isNaN(Number(m.distance)))
-      .map(m => ({ ...m, distance: Number(m.distance) }))
-      .sort((a, b) => a.distance - b.distance);
-    updateMilestones(clean);
-    alert("Étapes mises à jour ✅");
-  }
+function AdminTab({ milestones, updateMilestones, resetGroup }) {
+  const [local, setLocal] = useState([]);
+
+  // Convertit la liste cumulée en segments éditables
+  useEffect(() => {
+    const list = (milestones || []).map((m, i, arr) => ({
+      ...m,
+      segment: i === 0 ? 0 : Number(m.distance) - Number(arr[i - 1]?.distance || 0),
+    }));
+    setLocal(list);
+  }, [milestones]);
+
+  const move = (i, dir) => {
+    setLocal(prev => {
+      const arr = [...prev];
+      const j = i + (dir === "up" ? -1 : 1);
+      if (j < 0 || j >= arr.length) return prev;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      return arr;
+    });
+  };
+  const addMilestone = () => setLocal(prev => [...prev, { id: Math.random().toString(36).slice(2,9), name: "Nouvelle étape", segment: 50 }]);
+  const onSave = () => {
+    let cum = 0;
+    const cleaned = local
+      .map((m, i) => {
+        const name = (m.name || "").trim();
+        const seg = i === 0 ? 0 : Number(m.segment) || 0;
+        if (i === 0) cum = 0; else cum += seg;
+        return name ? { id: m.id || Math.random().toString(36).slice(2,9), name, distance: cum } : null;
+      })
+      .filter(Boolean);
+    updateMilestones(cleaned); // écrit Firestore
+    alert("Étapes mises à jour ✅ (ordre + cumul)");
+  };
+
+  // Export / import / reset (mêmes comportements, données lues depuis Firestore en live)
   function exportData() {
-    const raw = localStorage.getItem(LS_KEY) || "{}";
+    const raw = JSON.stringify({ milestones, members }, null, 2);
     const blob = new Blob([raw], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -355,31 +408,49 @@ function AdminTab({ milestones, updateMilestones, resetGroup }) {
     URL.revokeObjectURL(url);
   }
   function importData(ev) {
-    const file = ev.target.files?.[0];
-    if (!file) return;
+    const file = ev.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const obj = JSON.parse(String(reader.result));
-        localStorage.setItem(LS_KEY, JSON.stringify(obj));
-        location.reload();
+        if (Array.isArray(obj?.milestones)) await updateMilestones(obj.milestones);
+        alert("Import terminé (milestones). Les entrées peuvent être importées séparément si besoin.");
       } catch { alert("Fichier invalide"); }
     };
     reader.readAsText(file);
   }
 
+  const previewCumul = (idx) => {
+    let s = 0;
+    for (let i = 1; i <= idx; i++) s += Number(local[i]?.segment || 0);
+    return s;
+  };
+
   return (
     <div className="space-y-4">
       <Card>
-        <div className="flex items-center gap-2 mb-3"><Settings className="w-4 h-4"/><span className="font-medium">Gestion des étapes</span></div>
+        <div className="flex items-center gap-2 mb-3"><Settings className="w-4 h-4"/><span className="font-medium">Étapes (ordre du parcours)</span></div>
         <div className="space-y-2">
-          {local.map((m) => (
-            <div key={m.id} className="grid grid-cols-5 gap-2 items-center">
-              <input className="col-span-3 px-3 py-2 rounded-xl border border-neutral-200"
-                     value={m.name} onChange={e => setLocal(arr => arr.map(x => x.id === m.id ? { ...x, name: e.target.value } : x))}/>
-              <input type="number" className="col-span-1 px-3 py-2 rounded-xl border border-neutral-200"
-                     value={m.distance} onChange={e => setLocal(arr => arr.map(x => x.id === m.id ? { ...x, distance: e.target.value } : x))}/>
-              <button className="text-xs text-neutral-500" onClick={() => setLocal(arr => arr.filter(x => x.id !== m.id))}>Supprimer</button>
+          {local.map((m, i) => (
+            <div key={m.id} className="grid grid-cols-12 gap-2 items-center">
+              <div className="text-xs text-neutral-500 col-span-1 text-right">{i + 1}</div>
+              <input className="col-span-5 px-3 py-2 rounded-xl border border-neutral-200"
+                     value={m.name} onChange={e => setLocal(arr => arr.map((x, k) => k === i ? { ...x, name: e.target.value } : x))}/>
+              <div className="col-span-3 flex items-center gap-2">
+                <label className="text-xs text-neutral-500">Segment</label>
+                <input type="number" className="w-24 px-3 py-2 rounded-xl border border-neutral-200"
+                       value={i === 0 ? 0 : m.segment} disabled={i === 0}
+                       onChange={e => setLocal(arr => arr.map((x, k) => k === i ? { ...x, segment: e.target.value } : x))}/>
+                <span className="text-xs text-neutral-400">km</span>
+              </div>
+              <div className="col-span-2 text-xs text-neutral-500">{i === 0 ? "0 km cumulés" : `${previewCumul(i)} km cumulés`}</div>
+              <div className="col-span-1 flex gap-1 justify-end">
+                <button className="text-xs px-2 py-1 rounded border" onClick={() => move(i, "up")}>↑</button>
+                <button className="text-xs px-2 py-1 rounded border" onClick={() => move(i, "down")}>↓</button>
+              </div>
+              <div className="col-span-12 text-right">
+                <button className="text-xs text-neutral-500" onClick={() => setLocal(arr => arr.filter((_, k) => k !== i))}>Supprimer</button>
+              </div>
             </div>
           ))}
           <div className="flex gap-2">
