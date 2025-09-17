@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Trophy, Plus, Users, Settings, MapPin, Footprints, ChevronRight, Download } from "lucide-react";
-import { db, ensureAuth } from "./firebase"; // + signInAnon si tu l'utilises encore
-import { db, signInAnon } from "./firebase";
+import { db, ensureAuth } from "./firebase";
 import {
   doc, setDoc, getDoc, onSnapshot,
   collection, getDocs, deleteDoc
