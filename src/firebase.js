@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
-// ⬇️ colle ici l’objet montré dans ta capture
+// ← colle ici ta vraie config (celle de ta capture)
 const firebaseConfig = {
   apiKey: "AIzaSyAjHfI5mm65uLIKanSB_ZyIuj_fYrRfYSAM",
   authDomain: "mtliles.firebaseapp.com",
@@ -11,13 +11,15 @@ const firebaseConfig = {
   storageBucket: "mtliles.firebasestorage.app",
   messagingSenderId: "448638960426",
   appId: "1:448638960426:web:66cd2f3d44c9fd0a1fd453",
-  measurementId: "G-BY4QTZCSXP", // optionnel, on ne l’utilise pas
+  // measurementId: "G-BY4QTZCSXP" // optionnel, pas utilisé
 };
 
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 
-// Cache offline + sync quand le réseau revient
+// ⬇️ IMPORTANT: on exporte bien **db** en named export
+export const db = getFirestore(app);
+
+// (cache offline; ignore l'erreur si indisponible)
 enableIndexedDbPersistence(db).catch(() => {});
 
 const auth = getAuth(app);
