@@ -136,12 +136,22 @@ export default function App() {
 
   // Actions
   async function addEntry({ km, dateISO, note }) {
-    if (!username) return alert("Entre ton prénom d'abord.");
-    if (!km || km <= 0) return alert("Entre un nombre de kilomètres valide.");
-    const cur = await getMemberEntries(currentGroup, username);
-    const entry = { id: Math.random().toString(36).slice(2, 9), km: Number(km), dateISO: dateISO || new Date().toISOString().slice(0,10), note: note?.trim() };
-    await setMemberEntries(currentGroup, username, [entry, ...cur]); // écrit côté serveur
-  }
+  if (!username) return alert("Entre ton prénom d'abord.");
+  if (!km || km <= 0) return alert("Entre un nombre de kilomètres valide.");
+
+  // ⚠️ s’assurer d’être connecté en anonyme avant d’écrire
+  await signInAnon();
+
+  const cur = await getMemberEntries(currentGroup, username);
+  const entry = {
+    id: Math.random().toString(36).slice(2, 9),
+    km: Number(km),
+    dateISO: dateISO || new Date().toISOString().slice(0, 10),
+    note: note?.trim(),
+  };
+  await setMemberEntries(currentGroup, username, [entry, ...cur]);
+}
+
   async function removeEntry(id, name) {
     const cur = await getMemberEntries(currentGroup, name);
     await setMemberEntries(currentGroup, name, cur.filter(e => e.id !== id));
