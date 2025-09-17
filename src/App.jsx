@@ -79,8 +79,6 @@ export default function App() {
   const [members, setMembers] = useState({}); // { [name]: { entries: [...] } }
 
   // Auth anonyme + abonnements Firestore
-  const unsubGroupRef = useRef(null);
-  const unsubMembersRef = useRef(null);
 
  const unsubGroupRef = useRef(null);
 const unsubMembersRef = useRef(null);
