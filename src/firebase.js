@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
-// === ta config (inchangée) ===
+// === TA CONFIG (inchangée) ===
 const firebaseConfig = {
   apiKey: "AIzaSyAjHfI5mm65uLIKanSB_ZyIuj_fYrRfYSAM",
   authDomain: "mtliles.firebaseapp.com",
@@ -15,20 +15,28 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
 
-// offline cache (ignore l’erreur si indisponible)
+// Firestore
+export const db = getFirestore(app);
 enableIndexedDbPersistence(db).catch(() => {});
 
+// Auth
 const auth = getAuth(app);
 
-// ✅ Bloquant : garantit qu’on a un user (anonyme) avant d’utiliser Firestore
+// ⚡ Bloquant : garantit qu’on a un user (anonyme) avant d’utiliser Firestore
 export async function ensureAuth() {
   if (auth.currentUser) return auth.currentUser;
   return new Promise((resolve, reject) => {
     const unsub = onAuthStateChanged(
       auth,
       (user) => { if (user) { unsub(); resolve(user); } },
-      (err) => { unsub(); reject(err); }
+      (err)  => { unsub(); reject(err); }
     );
-    // lance la connexio
+    signInAnonymously(auth).catch(reject);
+  });
+}
+
+// Optionnel (si encore utilisé quelque part)
+export async function signInAnon() {
+  try { await signInAnonymously(auth); } catch (e) { console.error(e); }
+}
