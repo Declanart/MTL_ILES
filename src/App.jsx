@@ -269,47 +269,66 @@ function BoardTab({ perUserTotals, groupTotal }) {
 }
 
 function ProgressTab({ milestones, groupTotal, nextMilestone }) {
-  const sorted = [...milestones].sort((a, b) => a.distance - b.distance);
-  const max = sorted[sorted.length - 1]?.distance || 1;
+  const list = milestones || [];                   // on garde l'ordre tel quel (ordre du parcours)
+  const max = list.at(-1)?.distance || 1;          // km cumulés totaux
+  const startName = list[0]?.name ?? "Départ";
+  const endName = list.at(-1)?.name ?? "Arrivée";
+  const pct = Math.max(0, Math.min(100, (groupTotal / max) * 100));
+
   return (
     <div className="space-y-4">
       <Card>
-        <div className="flex items-center gap-2 mb-2"><MapPin className="w-4 h-4"/><span className="font-medium">Parcours</span></div>
+        <div className="flex items-center gap-2 mb-2">
+          <MapPin className="w-4 h-4" />
+          <span className="font-medium">Parcours</span>
+        </div>
+
         <div className="flex items-center justify-between text-sm">
-          <span>{sorted[0]?.name}</span>
+          <span>{startName}</span>
           <span className="text-neutral-500">{groupTotal.toFixed(1)} / {max} km</span>
-          <span>{sorted[sorted.length-1]?.name}</span>
+          <span>{endName}</span>
         </div>
+
         <div className="mt-2 h-3 bg-neutral-200 rounded-full overflow-hidden">
-          <div className="h-full bg-black" style={{ width: `${(groupTotal / max) * 100}%` }} />
+          <div className="h-full bg-black" style={{ width: `${pct}%` }} />
         </div>
+
         {nextMilestone && (
           <div className="mt-3 text-sm flex items-center gap-2">
-            <ChevronRight className="w-4 h-4"/>
-            Prochain arrêt: <span className="font-medium">{nextMilestone.name}</span> dans {Math.max(0, nextMilestone.distance - groupTotal).toFixed(1)} km
+            <ChevronRight className="w-4 h-4" />
+            Prochain arrêt: <span className="font-medium">{nextMilestone.name}</span>
+            dans {Math.max(0, (nextMilestone.distance ?? 0) - groupTotal).toFixed(1)} km
           </div>
         )}
       </Card>
+
       <Card>
         <div className="text-sm font-medium mb-2">Étapes</div>
         <ul className="divide-y">
-          {sorted.map(m => (
-            <li key={m.id} className="py-3 flex items-center justify-between">
-              <div>
-                <div className="font-medium">{m.name}</div>
-                <div className="text-xs text-neutral-500">{m.distance} km</div>
-              </div>
-              <div className={`text-xs px-2 py-1 rounded-full ${groupTotal >= m.distance ? "bg-green-100 text-green-700" : "bg-neutral-100 text-neutral-600"}`}>
-                {groupTotal >= m.distance ? "Atteint" : "À venir"}
-              </div>
-            </li>
-          ))}
+          {list.map((m, idx) => {
+            const prev = list[idx - 1];
+            const segment = idx === 0 ? 0 : Math.max(0, Number(m.distance) - Number(prev?.distance || 0)); // km entre étapes
+            return (
+              <li key={m.id} className="py-3 flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{idx + 1}. {m.name}</div>
+                  <div className="text-xs text-neutral-500">
+                    {segment} km segment · {m.distance} km cumulés
+                  </div>
+                </div>
+                <div className={`text-xs px-2 py-1 rounded-full ${
+                  groupTotal >= (m.distance ?? 0) ? "bg-green-100 text-green-700" : "bg-neutral-100 text-neutral-600"
+                }`}>
+                  {groupTotal >= (m.distance ?? 0) ? "Atteint" : "À venir"}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </Card>
     </div>
   );
 }
-
 function AdminTab({ milestones, updateMilestones, resetGroup }) {
   const [local, setLocal] = useState(milestones);
   useEffect(() => setLocal(milestones), [milestones]);
