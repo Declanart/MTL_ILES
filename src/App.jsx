@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Trophy, Plus, Users, Settings, MapPin, Footprints, ChevronRight, Download } from "lucide-react";
+import { db, ensureAuth } from "./firebase"; // + signInAnon si tu l'utilises encore
 import { db, signInAnon } from "./firebase";
 import {
   doc, setDoc, getDoc, onSnapshot,
@@ -82,34 +83,42 @@ export default function App() {
   const unsubGroupRef = useRef(null);
   const unsubMembersRef = useRef(null);
 
-  useEffect(() => { signInAnon(); }, []);
+ const unsubGroupRef = useRef(null);
+const unsubMembersRef = useRef(null);
 
-  useEffect(() => {
-    // 1) s'assurer que le doc du groupe existe
-    ensureGroupDoc(currentGroup);
+useEffect(() => {
+  let alive = true;
+  (async () => {
+    // ✅ attendre la connexion anonyme avant tout
+    await ensureAuth();
 
-    // 2) écouter le doc du groupe (milestones)
+    // s'assurer que le doc du groupe existe
+    await ensureGroupDoc(currentGroup);
+
+    // écouter le doc groupe (milestones)
     if (unsubGroupRef.current) unsubGroupRef.current();
+    if (!alive) return;
     unsubGroupRef.current = onSnapshot(doc(db, "groups", currentGroup), (snap) => {
       const data = snap.data() || {};
       setMilestones(Array.isArray(data.milestones) && data.milestones.length ? data.milestones : DEFAULT_MILESTONES);
     });
 
-    // 3) écouter tous les membres + entrées
+    // écouter les membres
     if (unsubMembersRef.current) unsubMembersRef.current();
+    if (!alive) return;
     unsubMembersRef.current = onSnapshot(collection(db, "groups", currentGroup, "members"), (qs) => {
       const obj = {};
       qs.forEach((d) => { obj[d.id] = { entries: d.data()?.entries || [] }; });
       setMembers(obj);
     });
+  })();
 
-    return () => {
-      if (unsubGroupRef.current) unsubGroupRef.current();
-      if (unsubMembersRef.current) unsubMembersRef.current();
-    };
-  }, [currentGroup]);
-
-  useEffect(() => { localStorage.setItem(LS_USER, username); }, [username]);
+  return () => {
+    alive = false;
+    if (unsubGroupRef.current) unsubGroupRef.current();
+    if (unsubMembersRef.current) unsubMembersRef.current();
+  };
+}, [currentGroup]);
 
   // Dérivés
   const { entries, perUserTotals, groupTotal } = useMemo(() => {
@@ -135,12 +144,29 @@ export default function App() {
   }, [milestones, groupTotal]);
 
   // Actions
+  
+async function removeEntry(id, name) {
+  await ensureAuth();
+  const cur = await getMemberEntries(currentGroup, name);
+  await setMemberEntries(currentGroup, name, cur.filter(e => e.id !== id));
+}
+
+async function updateMilestonesAction(list) {
+  await ensureAuth();
+  await updateGroupMilestones(currentGroup, list);
+}
+
+async function resetGroup() {
+  await ensureAuth();
+  if (!confirm("Réinitialiser le groupe? (toutes les entrées seront effacées)")) return;
+  await deleteAllMembers(currentGroup);
+}
   async function addEntry({ km, dateISO, note }) {
   if (!username) return alert("Entre ton prénom d'abord.");
   if (!km || km <= 0) return alert("Entre un nombre de kilomètres valide.");
 
   // ⚠️ s’assurer d’être connecté en anonyme avant d’écrire
-  await signInAnon();
+  await ensureAuth ();
 
   const cur = await getMemberEntries(currentGroup, username);
   const entry = {
