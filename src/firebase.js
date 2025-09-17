@@ -3,20 +3,21 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
-// ⬇️ Remplace par la config copiée depuis Firebase (Général > Web app)
+// ⬇️ colle ici l’objet montré dans ta capture
 const firebaseConfig = {
-  apiKey: "XXX",
-  authDomain: "XXX.firebaseapp.com",
-  projectId: "XXX",
-  storageBucket: "XXX.appspot.com",
-  messagingSenderId: "XXX",
-  appId: "XXX"
+  apiKey: "AIzaSyAjHfI5mm65uLIKanSB_ZyIuj_fYrRfYSAM",
+  authDomain: "mtliles.firebaseapp.com",
+  projectId: "mtliles",
+  storageBucket: "mtliles.firebasestorage.app",
+  messagingSenderId: "448638960426",
+  appId: "1:448638960426:web:66cd2f3d44c9fd0a1fd453",
+  measurementId: "G-BY4QTZCSXP", // optionnel, on ne l’utilise pas
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+const analytics = getAnalytics(app);
 
-// (offline OK : le cache se synchronise dès qu'il y a du réseau)
+// Cache offline + sync quand le réseau revient
 enableIndexedDbPersistence(db).catch(() => {});
 
 const auth = getAuth(app);
