@@ -401,9 +401,8 @@ function ProgressTab({ milestones, groupTotal, nextMilestone }) {
     </div>
   );
 }
-
+// ===== AdminTab (remplacer tout le bloc) =====
 function AdminTab({ milestones, updateMilestones, resetGroup }) {
-  // helpers locaux
   const onChangeDistance = (i, v) => {
     const list = [...milestones];
     list[i] = { ...list[i], distance: Number(v) || 0 };
@@ -461,7 +460,7 @@ function AdminTab({ milestones, updateMilestones, resetGroup }) {
                 <label className="text-xs text-neutral-500">Segment</label>
 
                 <div className="relative">
-                  {/* on réserve de la place à droite à partir de md */}
+                  {/* on réserve de la place à droite dès md */}
                   <input
                     type="number"
                     className="w-full mt-1 px-3 py-2 rounded-xl border border-neutral-200 md:pr-28"
@@ -469,7 +468,7 @@ function AdminTab({ milestones, updateMilestones, resetGroup }) {
                     onChange={(e) => onChangeDistance(i, e.target.value)}
                   />
 
-                  {/* mobile: en dessous ; ≥ md : suffixe à droite */}
+                  {/* mobile: dessous ; ≥ md : à droite sans chevauchement */}
                   <span
                     className="
                       block mt-1 text-xs text-neutral-500 whitespace-nowrap
@@ -524,6 +523,8 @@ function AdminTab({ milestones, updateMilestones, resetGroup }) {
     </Card>
   );
 }
+
+// ===== fin AdminTab =====
 
   // Export / import / reset (mêmes comportements, données lues depuis Firestore en live)
   function exportData() {
