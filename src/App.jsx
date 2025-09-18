@@ -74,6 +74,53 @@ async function deleteAllMembers(groupId) {
   q.forEach((d) => ops.push(deleteDoc(d.ref)));
   await Promise.all(ops);
 }
+import { motion } from "framer-motion"; // tu l’as déjà
+
+function Header() {
+  return (
+    <header className="relative isolate sticky top-0 z-40">
+      {/* Fond dégradé coloré */}
+      <div className="absolute inset-0 bg-gradient-to-r from-sky-300 via-indigo-300 to-emerald-300" />
+
+      {/* Motif discret (petits points) */}
+      <svg className="absolute inset-0 opacity-15 mix-blend-multiply" width="100%" height="100%">
+        <defs>
+          <pattern id="dots-header" width="28" height="28" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="2" fill="white" />
+            <circle cx="14" cy="14" r="2" fill="white" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#dots-header)" />
+      </svg>
+
+      {/* Contenu centré */}
+      <div className="relative max-w-xl mx-auto px-4 py-6">
+        <div className="flex flex-col items-center text-center gap-3">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+            {/* Logo carré noir avec M parfaitement centré */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-black text-white grid place-items-center font-bold shadow-lg ring-4 ring-white/30">
+              <span className="leading-none text-4xl sm:text-5xl">M</span>
+            </div>
+          </motion.div>
+
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-black to-neutral-700">
+                Les Motivés
+              </span>
+            </h1>
+            <p className="text-xs sm:text-sm text-black/70">synchro temps réel</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Vague de séparation */}
+      <svg className="absolute bottom-0 left-0 w-full text-neutral-50" viewBox="0 0 1440 80" preserveAspectRatio="none" aria-hidden="true">
+        <path fill="currentColor" d="M0,48 C240,96 480,0 720,40 C960,80 1200,24 1440,60 L1440,0 L0,0 Z" />
+      </svg>
+    </header>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("log");
@@ -178,55 +225,55 @@ async function resetGroup() {
   };
   await setMemberEntries(currentGroup, username, [entry, ...cur]);
 }
-  // UI
-  const groups = [DEFAULT_GROUP_ID]; // tu peux étendre si besoin
-  return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-neutral-50 to-neutral-100 text-neutral-900">
-      <div className="max-w-xl mx-auto p-4 pb-24">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-              <div className="w-10 h-10 rounded-2xl bg-black text-white grid place-items-center font-bold">LM</div>
-            </motion.div>
-            <div>
-              <h1 className="text-xl font-semibold leading-tight">Les motivés</h1>
-              <p className="text-sm text-neutral-500">Synchro temps réel (Firestore)</p>
-            </div>
+// UI
+const groups = [DEFAULT_GROUP_ID]; // tu peux étendre si besoin
+return (
+  <div className="min-h-screen w-full bg-gradient-to-b from-neutral-50 to-neutral-100 text-neutral-900">
+    {/* Nouveau bandeau artistique */}
+    <Header />
+
+    <div className="max-w-xl mx-auto p-4 pb-24">
+      {/* Ancien en-tête supprimé (LM / Les motivés / Synchro) */}
+
+      <Card className="mb-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <label className="text-xs text-neutral-500">Groupe</label>
+            <select
+              className="flex-1 px-3 py-2 rounded-xl border border-neutral-200 bg-white"
+              value={currentGroup}
+              onChange={e => setCurrentGroup(e.target.value)}
+            >
+              {groups.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
           </div>
-          <div className="text-xs text-neutral-500">{currentGroup}</div>
-        </div>
-
-        <Card className="mb-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <label className="text-xs text-neutral-500">Groupe</label>
-              <select className="flex-1 px-3 py-2 rounded-xl border border-neutral-200 bg-white"
-                value={currentGroup} onChange={e => setCurrentGroup(e.target.value)}>
-                {groups.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
-            </div>
-            <div className="w-full sm:w-1/2">
-              <label className="text-xs text-neutral-500">Ton prénom</label>
-              <input className="w-full mt-1 px-3 py-2 rounded-xl border border-neutral-200"
-                placeholder="ex. Keven" value={username} onChange={e => setUsername(e.target.value)} />
-            </div>
+          <div className="w-full sm:w-1/2">
+            <label className="text-xs text-neutral-500">Ton prénom</label>
+            <input
+              className="w-full mt-1 px-3 py-2 rounded-xl border border-neutral-200"
+              placeholder="ex. Keven"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+            />
           </div>
-        </Card>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-          <TabButton active={activeTab === "log"} icon={Footprints} label="Ajouter" onClick={() => setActiveTab("log")} />
-          <TabButton active={activeTab === "board"} icon={Trophy} label="Classement" onClick={() => setActiveTab("board")} />
-          <TabButton active={activeTab === "progress"} icon={MapPin} label="Parcours" onClick={() => setActiveTab("progress")} />
-          <TabButton active={activeTab === "admin"} icon={Settings} label="Admin" onClick={() => setActiveTab("admin")} />
         </div>
+      </Card>
 
-        {activeTab === "log" && <LogTab addEntry={addEntry} entries={entries} removeEntry={removeEntry} />}
-        {activeTab === "board" && <BoardTab perUserTotals={perUserTotals} groupTotal={groupTotal} />}
-        {activeTab === "progress" && <ProgressTab milestones={milestones} groupTotal={groupTotal} nextMilestone={nextMilestone} />}
-        {activeTab === "admin" && <AdminTab milestones={milestones} updateMilestones={updateMilestonesAction} resetGroup={resetGroup} />}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <TabButton active={activeTab === "log"} icon={Footprints} label="Ajouter" onClick={() => setActiveTab("log")} />
+        <TabButton active={activeTab === "board"} icon={Trophy} label="Classement" onClick={() => setActiveTab("board")} />
+        <TabButton active={activeTab === "progress"} icon={MapPin} label="Parcours" onClick={() => setActiveTab("progress")} />
+        <TabButton active={activeTab === "admin"} icon={Settings} label="Admin" onClick={() => setActiveTab("admin")} />
       </div>
+
+      {activeTab === "log" && <LogTab addEntry={addEntry} entries={entries} removeEntry={removeEntry} />}
+      {activeTab === "board" && <BoardTab perUserTotals={perUserTotals} groupTotal={groupTotal} />}
+      {activeTab === "progress" && <ProgressTab milestones={milestones} groupTotal={groupTotal} nextMilestone={nextMilestone} />}
+      {activeTab === "admin" && <AdminTab milestones={milestones} updateMilestones={updateMilestonesAction} resetGroup={resetGroup} />}
     </div>
-  );
+  </div>
+);
+
 }
 
 // ---- Tabs
