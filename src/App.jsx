@@ -401,7 +401,6 @@ function ProgressTab({ milestones, groupTotal, nextMilestone }) {
     </div>
   );
 }
-// ===== AdminTab (remplacer tout le bloc) =====
 function AdminTab({ milestones, updateMilestones, resetGroup }) {
   const onChangeDistance = (i, v) => {
     const list = [...milestones];
@@ -523,8 +522,6 @@ function AdminTab({ milestones, updateMilestones, resetGroup }) {
     </Card>
   );
 }
-
-// ===== fin AdminTab =====
 
   // Export / import / reset (mêmes comportements, données lues depuis Firestore en live)
   function exportData() {
