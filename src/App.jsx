@@ -440,7 +440,11 @@ function AdminTab({ milestones, updateMilestones, resetGroup }) {
           return (
             <div key={seg.id || i} className="flex items-start gap-3 py-1">
               <div className="flex-1">
-                <label className="text-xs text-neutral-500">Segment</label>
+                <label className="text-xs text-neutral-500">
+  {i === 0
+    ? "Départ"
+    : <>Segment vers <span className="font-medium">{seg.name || `Étape ${i + 1}`}</span></>}
+</label>
 
                 <div className="relative">
                   {/* on réserve de la place à droite dès md */}
