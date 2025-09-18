@@ -178,22 +178,6 @@ async function resetGroup() {
   };
   await setMemberEntries(currentGroup, username, [entry, ...cur]);
 }
-
-  async function removeEntry(id, name) {
-    await ensureAuth()
-    const cur = await getMemberEntries(currentGroup, name);
-    await setMemberEntries(currentGroup, name, cur.filter(e => e.id !== id));
-  }
-  async function updateMilestonesAction(list) {
-    await ensureAuth()
-    await updateGroupMilestones(currentGroup, list); // ordre respecté + distances cumulées déjà calculées par Admin
-  }
-  async function resetGroup() {
-    await ensureAuth()
-    if (!confirm("Réinitialiser le groupe? (toutes les entrées seront effacées)")) return;
-    await deleteAllMembers(currentGroup);
-  }
-
   // UI
   const groups = [DEFAULT_GROUP_ID]; // tu peux étendre si besoin
   return (
@@ -520,82 +504,5 @@ function AdminTab({ milestones, updateMilestones, resetGroup }) {
         </button>
       </div>
     </Card>
-  );
-}
-
-  // Export / import / reset (mêmes comportements, données lues depuis Firestore en live)
-  function exportData() {
-    const raw = JSON.stringify({ milestones, members }, null, 2);
-    const blob = new Blob([raw], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "kilometres-ensemble-data.json"; a.click();
-    URL.revokeObjectURL(url);
-  }
-  function importData(ev) {
-    const file = ev.target.files?.[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const obj = JSON.parse(String(reader.result));
-        if (Array.isArray(obj?.milestones)) await updateMilestones(obj.milestones);
-        alert("Import terminé (milestones). Les entrées peuvent être importées séparément si besoin.");
-      } catch { alert("Fichier invalide"); }
-    };
-    reader.readAsText(file);
-  }
-
-  const previewCumul = (idx) => {
-    let s = 0;
-    for (let i = 1; i <= idx; i++) s += Number(local[i]?.segment || 0);
-    return s;
-  };
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex items-center gap-2 mb-3"><Settings className="w-4 h-4"/><span className="font-medium">Étapes (ordre du parcours)</span></div>
-        <div className="space-y-2">
-          {local.map((m, i) => (
-            <div key={m.id} className="grid grid-cols-12 gap-2 items-center">
-              <div className="text-xs text-neutral-500 col-span-1 text-right">{i + 1}</div>
-              <input className="col-span-5 px-3 py-2 rounded-xl border border-neutral-200"
-                     value={m.name} onChange={e => setLocal(arr => arr.map((x, k) => k === i ? { ...x, name: e.target.value } : x))}/>
-              <div className="col-span-3 flex items-center gap-2">
-                <label className="text-xs text-neutral-500">Segment</label>
-                <input type="number" className="w-24 px-3 py-2 rounded-xl border border-neutral-200"
-                       value={i === 0 ? 0 : m.segment} disabled={i === 0}
-                       onChange={e => setLocal(arr => arr.map((x, k) => k === i ? { ...x, segment: e.target.value } : x))}/>
-                <span className="text-xs text-neutral-400">km</span>
-              </div>
-              <div className="col-span-2 text-xs text-neutral-500">{i === 0 ? "0 km cumulés" : `${previewCumul(i)} km cumulés`}</div>
-              <div className="col-span-1 flex gap-1 justify-end">
-                <button className="text-xs px-2 py-1 rounded border" onClick={() => move(i, "up")}>↑</button>
-                <button className="text-xs px-2 py-1 rounded border" onClick={() => move(i, "down")}>↓</button>
-              </div>
-              <div className="col-span-12 text-right">
-                <button className="text-xs text-neutral-500" onClick={() => setLocal(arr => arr.filter((_, k) => k !== i))}>Supprimer</button>
-              </div>
-            </div>
-          ))}
-          <div className="flex gap-2">
-            <Button onClick={addMilestone}><Plus className="w-4 h-4 mr-1"/> Ajouter une étape</Button>
-            <Button className="bg-black text-white" onClick={onSave}>Enregistrer</Button>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <div className="font-medium mb-2">Sauvegarde</div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button onClick={exportData}><Download className="w-4 h-4 mr-1"/>Exporter</Button>
-          <label className="px-4 py-2 rounded-2xl shadow-sm border border-neutral-200 bg-white hover:shadow cursor-pointer">
-            Importer JSON
-            <input type="file" accept="application/json" onChange={importData} className="hidden" />
-          </label>
-          <Button className="text-red-600 border-red-600" onClick={resetGroup}>Réinitialiser le groupe</Button>
-        </div>
-      </Card>
-    </div>
   );
 }
