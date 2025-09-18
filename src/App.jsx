@@ -75,51 +75,41 @@ async function deleteAllMembers(groupId) {
   await Promise.all(ops);
 }
 
+// --- HEADER sans vague blanche ---
+// Remplace ton Header actuel par celui-ci.
+// Laisse l'appel <Header /> au même endroit dans App().
+
 function Header() {
   return (
-    <header className="relative isolate sticky top-0 z-40">
-      {/* Fond dégradé coloré */}
-      <div className="absolute inset-0 bg-gradient-to-r from-sky-300 via-indigo-300 to-emerald-300" />
-
-      {/* Motif discret (petits points) */}
-      <svg className="absolute inset-0 opacity-15 mix-blend-multiply" width="100%" height="100%">
-        <defs>
-          <pattern id="dots-header" width="28" height="28" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="2" fill="white" />
-            <circle cx="14" cy="14" r="2" fill="white" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#dots-header)" />
-      </svg>
-
-      {/* Contenu centré */}
-      <div className="relative max-w-xl mx-auto px-4 py-6">
-        <div className="flex flex-col items-center text-center gap-3">
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-            {/* Logo carré noir avec M parfaitement centré */}
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-black text-white grid place-items-center font-bold shadow-lg ring-4 ring-white/30">
-              <span className="leading-none text-4xl sm:text-5xl">M</span>
-            </div>
-          </motion.div>
-
-          <div className="min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-black to-neutral-700">
-                Les Motivés
-              </span>
-            </h1>
-            <p className="text-xs sm:text-sm text-black/70">synchro temps réel</p>
+    <header className="relative bg-gradient-to-r from-sky-500 to-indigo-500 text-white">
+      <div className="max-w-xl mx-auto px-4 py-10 text-center">
+        {/* Logo carré avec M centré */}
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-white/15 backdrop-blur grid place-items-center shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-black text-white grid place-items-center font-bold">
+            M
           </div>
         </div>
-      </div>
 
-      {/* Vague de séparation */}
-      <svg className="absolute bottom-0 left-0 w-full text-neutral-50" viewBox="0 0 1440 80" preserveAspectRatio="none" aria-hidden="true">
-        <path fill="currentColor" d="M0,48 C240,96 480,0 720,40 C960,80 1200,24 1440,60 L1440,0 L0,0 Z" />
-      </svg>
+        {/* Titre */}
+        <h1
+          className="mt-4 text-2xl sm:text-3xl font-semibold tracking-tight"
+          style={{ fontFamily: '"DejaVu Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif' }}
+        >
+          Les motivés
+        </h1>
+
+        {/* Sous-titre */}
+        <p
+          className="mt-1 text-sm sm:text-base text-white/90"
+          style={{ fontFamily: '"DejaVu Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif' }}
+        >
+          Synchro temps réel
+        </p>
+      </div>
     </header>
   );
 }
+
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("log");
