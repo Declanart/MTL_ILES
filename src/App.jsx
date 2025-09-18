@@ -74,7 +74,6 @@ async function deleteAllMembers(groupId) {
   q.forEach((d) => ops.push(deleteDoc(d.ref)));
   await Promise.all(ops);
 }
-import { motion } from "framer-motion"; // tu l’as déjà
 
 function Header() {
   return (
