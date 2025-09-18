@@ -403,40 +403,127 @@ function ProgressTab({ milestones, groupTotal, nextMilestone }) {
 }
 
 function AdminTab({ milestones, updateMilestones, resetGroup }) {
-  const [local, setLocal] = useState([]);
-
-  // Convertit la liste cumulée en segments éditables
-  useEffect(() => {
-    const list = (milestones || []).map((m, i, arr) => ({
-      ...m,
-      segment: i === 0 ? 0 : Number(m.distance) - Number(arr[i - 1]?.distance || 0),
-    }));
-    setLocal(list);
-  }, [milestones]);
-
-  const move = (i, dir) => {
-    setLocal(prev => {
-      const arr = [...prev];
-      const j = i + (dir === "up" ? -1 : 1);
-      if (j < 0 || j >= arr.length) return prev;
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-      return arr;
-    });
+  // helpers locaux
+  const onChangeDistance = (i, v) => {
+    const list = [...milestones];
+    list[i] = { ...list[i], distance: Number(v) || 0 };
+    updateMilestones(list);
   };
-  const addMilestone = () => setLocal(prev => [...prev, { id: Math.random().toString(36).slice(2,9), name: "Nouvelle étape", segment: 50 }]);
-  const onSave = () => {
-    let cum = 0;
-    const cleaned = local
-      .map((m, i) => {
-        const name = (m.name || "").trim();
-        const seg = i === 0 ? 0 : Number(m.segment) || 0;
-        if (i === 0) cum = 0; else cum += seg;
-        return name ? { id: m.id || Math.random().toString(36).slice(2,9), name, distance: cum } : null;
-      })
-      .filter(Boolean);
-    updateMilestones(cleaned); // écrit Firestore
-    alert("Étapes mises à jour ✅ (ordre + cumul)");
+
+  const moveUp = (i) => {
+    if (i === 0) return;
+    const list = [...milestones];
+    const [x] = list.splice(i, 1);
+    list.splice(i - 1, 0, x);
+    updateMilestones(list);
   };
+
+  const moveDown = (i) => {
+    if (i === milestones.length - 1) return;
+    const list = [...milestones];
+    const [x] = list.splice(i, 1);
+    list.splice(i + 1, 0, x);
+    updateMilestones(list);
+  };
+
+  const remove = (i) => {
+    const list = [...milestones];
+    list.splice(i, 1);
+    updateMilestones(list);
+  };
+
+  const addSeg = () => {
+    const list = [
+      ...milestones,
+      { id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), distance: 0 },
+    ];
+    updateMilestones(list);
+  };
+
+  const total = milestones.reduce((s, m) => s + Number(m.distance || 0), 0);
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-medium">Étapes (ordre du parcours)</div>
+        <div className="text-sm text-neutral-500">{total} km au total</div>
+      </div>
+
+      <div className="space-y-3">
+        {milestones.map((seg, i) => {
+          const cumulativeKm = milestones
+            .slice(0, i + 1)
+            .reduce((s, m) => s + Number(m.distance || 0), 0);
+
+          return (
+            <div key={seg.id || i} className="flex items-start gap-3 py-1">
+              <div className="flex-1">
+                <label className="text-xs text-neutral-500">Segment</label>
+
+                <div className="relative">
+                  {/* on réserve de la place à droite à partir de md */}
+                  <input
+                    type="number"
+                    className="w-full mt-1 px-3 py-2 rounded-xl border border-neutral-200 md:pr-28"
+                    value={Number(seg.distance || 0)}
+                    onChange={(e) => onChangeDistance(i, e.target.value)}
+                  />
+
+                  {/* mobile: en dessous ; ≥ md : suffixe à droite */}
+                  <span
+                    className="
+                      block mt-1 text-xs text-neutral-500 whitespace-nowrap
+                      md:mt-0 md:absolute md:right-3 md:top-1/2 md:-translate-y-1/2
+                      md:bg-white md:px-1
+                    "
+                  >
+                    {cumulativeKm} km cumulés
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-1 self-center pt-7 md:pt-0">
+                <button
+                  className="px-2 py-1 rounded border border-neutral-300"
+                  onClick={() => moveUp(i)}
+                  title="Monter"
+                >
+                  ↑
+                </button>
+                <button
+                  className="px-2 py-1 rounded border border-neutral-300"
+                  onClick={() => moveDown(i)}
+                  title="Descendre"
+                >
+                  ↓
+                </button>
+                <button
+                  className="px-2 py-1 rounded border border-red-300 text-red-600"
+                  onClick={() => remove(i)}
+                  title="Supprimer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <button className="px-3 py-2 rounded-xl border" onClick={addSeg}>
+          Ajouter un segment
+        </button>
+        <button
+          className="ml-auto px-3 py-2 rounded-xl border border-red-300 text-red-600"
+          onClick={resetGroup}
+        >
+          Réinitialiser le groupe
+        </button>
+      </div>
+    </Card>
+  );
+}
 
   // Export / import / reset (mêmes comportements, données lues depuis Firestore en live)
   function exportData() {
